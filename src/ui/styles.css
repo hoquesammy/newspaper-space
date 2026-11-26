@@ -1,0 +1,599 @@
+/* ==========================================================================
+   3D Historical Newspaper Presentation Space — Core UI & Overlay Styles
+   ========================================================================== */
+
+:root {
+  --ink-dark: #1a1815;
+  --paper-cream: #f2ead8;
+  --paper-aged: #e4d6b8;
+  --gold-accent: #d9a74a;
+  --gold-soft: #ffd28a;
+  --crimson: #d62828;
+  --crimson-deep: #9e1b1b;
+  --glass-bg: rgba(15, 23, 34, 0.8);
+  --glass-bg-hover: rgba(24, 36, 52, 0.9);
+  --glass-border: rgba(242, 234, 216, 0.16);
+  --glass-shadow: 0 12px 32px rgba(5, 10, 18, 0.48), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+
+  --font-serif: 'Newsreader', 'Playfair Display', Georgia, serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app,
+#webgl-canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #0f1722;
+  color: var(--paper-cream);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  position: relative;
+}
+
+#webgl-canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+#webgl-canvas.cursor-grab {
+  cursor: grab;
+}
+
+#webgl-canvas.cursor-grabbing {
+  cursor: grabbing;
+}
+
+#hotspot-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  overflow: hidden;
+}
+
+#hud-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Accessible focus ring across all interactive overlays */
+button:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+/* ==========================================================================
+   Interactive Red-Dot Hotspots (Morphing to Exit '×' Badge)
+   ========================================================================== */
+
+.hotspot-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform, opacity;
+  transition: opacity 260ms ease;
+}
+
+.hotspot-pulse {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 2px solid rgba(214, 40, 40, 0.85);
+  background: rgba(214, 40, 40, 0.16);
+  animation: hotspot-radar 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.hotspot-core {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--crimson);
+  border: 2px solid var(--paper-cream);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(26, 24, 21, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms ease,
+    border-color 220ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+.hotspot-exit-svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  transform: scale(0.4) rotate(-45deg);
+  transition:
+    opacity 200ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Hover attract state */
+.hotspot-dot:hover:not(.is-active) .hotspot-core,
+.hotspot-dot:focus-visible:not(.is-active) .hotspot-core {
+  transform: scale(1.26);
+  background: #e53232;
+  box-shadow:
+    0 4px 14px rgba(214, 40, 40, 0.65),
+    0 0 0 2px rgba(242, 234, 216, 0.9);
+}
+
+/* Active / Zoomed-In state -> morphs cleanly into high-contrast Exit (×) button */
+.hotspot-dot.is-active {
+  z-index: 15;
+}
+
+.hotspot-dot.is-active .hotspot-pulse {
+  opacity: 0;
+  animation: none;
+}
+
+.hotspot-dot.is-active .hotspot-core {
+  width: 30px;
+  height: 30px;
+  background: #231616;
+  border: 2px solid var(--crimson);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.62),
+    0 0 0 2px rgba(242, 234, 216, 0.85);
+}
+
+.hotspot-dot.is-active:hover .hotspot-core {
+  background: var(--crimson-deep);
+  border-color: var(--paper-cream);
+  transform: scale(1.08);
+}
+
+.hotspot-dot.is-active .hotspot-exit-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.hotspot-dot.is-dimmed .hotspot-pulse {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+/* Vintage Paper Editorial Tooltip */
+.hotspot-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translate(-50%, 5px);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--paper-cream);
+  color: var(--ink-dark);
+  border: 1px solid rgba(43, 38, 32, 0.55);
+  box-shadow:
+    0 8px 22px rgba(5, 10, 18, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hotspot-tooltip-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--crimson);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.hotspot-tooltip-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hotspot-dot[data-tooltip-align='left'] .hotspot-tooltip {
+  left: auto;
+  right: -6px;
+  transform: translate(0, 5px);
+}
+
+.hotspot-dot[data-tooltip-pos='bottom'] .hotspot-tooltip {
+  bottom: auto;
+  top: calc(100% + 6px);
+  transform: translate(-50%, -5px);
+}
+
+.hotspot-dot[data-tooltip-align='left'][data-tooltip-pos='bottom'] .hotspot-tooltip {
+  transform: translate(0, -5px);
+}
+
+.hotspot-dot:hover:not(.is-active) .hotspot-tooltip,
+.hotspot-dot:focus-visible:not(.is-active) .hotspot-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.hotspot-dot[data-tooltip-align='left']:hover:not(.is-active) .hotspot-tooltip,
+.hotspot-dot[data-tooltip-align='left']:focus-visible:not(.is-active) .hotspot-tooltip {
+  transform: translate(0, 0);
+}
+
+@keyframes hotspot-radar {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Presentation HUD Bar & Hints
+   ========================================================================== */
+
+.hud-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  pointer-events: auto;
+  max-width: calc(100vw - 32px);
+  transition:
+    opacity 240ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hud-bar.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 18px);
+}
+
+.hud-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(242, 234, 216, 0.16);
+  flex-shrink: 0;
+}
+
+/* Status & Clock */
+.hud-status {
+  padding: 0 6px 0 4px;
+  gap: 8px;
+}
+
+.hud-phase-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold-accent);
+  box-shadow: 0 0 8px rgba(217, 167, 74, 0.75);
+  flex-shrink: 0;
+  transition: background-color 260ms ease, box-shadow 260ms ease;
+}
+
+.hud-phase-dot.is-interactive {
+  background: #67c587;
+  box-shadow: 0 0 8px rgba(103, 197, 135, 0.75);
+}
+
+.hud-phase-label {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-cream);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.hud-clock {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gold-soft);
+  letter-spacing: 0.02em;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* Buttons */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--paper-cream);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.hud-btn:hover:not(:disabled) {
+  background: rgba(242, 234, 216, 0.12);
+  border-color: rgba(242, 234, 216, 0.18);
+}
+
+.hud-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.hud-btn[hidden] {
+  display: none;
+}
+
+.hud-btn-icon {
+  width: 30px;
+  padding: 0;
+}
+
+.hud-btn-accent {
+  background: rgba(217, 167, 74, 0.18);
+  border-color: rgba(217, 167, 74, 0.45);
+  color: var(--gold-soft);
+}
+
+.hud-btn-accent:hover:not(:disabled) {
+  background: rgba(217, 167, 74, 0.3);
+  border-color: rgba(255, 210, 138, 0.7);
+}
+
+.hud-btn-ghost {
+  color: rgba(242, 234, 216, 0.72);
+}
+
+.hud-btn-svg {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+
+.hud-btn-svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Section Stepper Badge */
+.hud-section-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(242, 234, 216, 0.72);
+  min-width: 34px;
+  text-align: center;
+  transition: color 180ms ease;
+}
+
+.hud-section-badge.is-active {
+  color: var(--gold-soft);
+}
+
+/* Pace Segmented Selector */
+.hud-pace {
+  background: rgba(8, 13, 21, 0.55);
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 234, 216, 0.1);
+  gap: 2px;
+}
+
+.hud-pace-btn {
+  height: 24px;
+  padding: 0 7px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(242, 234, 216, 0.68);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.hud-pace-btn:hover {
+  color: var(--paper-cream);
+}
+
+.hud-pace-btn.is-active {
+  background: rgba(217, 167, 74, 0.28);
+  color: var(--gold-soft);
+}
+
+/* Restore HUD Mini-Pill */
+.hud-restore-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 34, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(242, 234, 216, 0.18);
+  color: rgba(242, 234, 216, 0.82);
+  font-family: var(--font-serif);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.hud-restore-btn:hover {
+  background: var(--glass-bg-hover);
+  color: var(--paper-cream);
+}
+
+.hud-restore-btn[hidden] {
+  display: none;
+}
+
+/* Centered unobtrusive interaction hint floating cleanly above HUD bar */
+.hud-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 34, 0.76);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(242, 234, 216, 0.16);
+  color: rgba(242, 234, 216, 0.9);
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
+  transition:
+    opacity 360ms ease,
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hud-hint.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.hud-hint.is-dismissed {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+}
+
+.hud-hint-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--crimson);
+  border: 1.5px solid var(--paper-cream);
+  flex-shrink: 0;
+}
+
+/* Compact desktop responsiveness */
+@media (max-width: 1180px) {
+  .hud-hint {
+    bottom: 72px;
+    left: 50%;
+    transform: translate(-50%, 8px);
+  }
+  .hud-hint.is-visible {
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .hotspot-pulse {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .hotspot-dot,
+  .hotspot-core,
+  .hotspot-exit-svg,
+  .hotspot-tooltip,
+  .hud-bar,
+  .hud-hint {
+    transition-duration: 0.01ms !important;
+  }
+}
